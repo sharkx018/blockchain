@@ -8,4 +8,5 @@ def hash_string(string: str):
 
 
 def hash_block(block):
-    return hash_string(json.dumps(block, sort_keys=True))
+    hashable_block = block.__dict__.copy()
+    return hash_string(json.dumps(hashable_block, sort_keys=True))
