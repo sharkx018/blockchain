@@ -135,9 +135,6 @@ class Blockchain:
             amount
         )
 
-        if not Wallet.verify_transaction(transaction):
-            return False
-
         if Verification.verify_transaction(transaction, self.get_balance):
             self.__open_transactions.append(transaction)
             self.save_data()
@@ -168,6 +165,12 @@ class Blockchain:
 
         # open_transactions.append(reward_transaction)
         copied_transaction = self.__open_transactions[:]
+
+        # verifying the transactions
+        for tx in copied_transaction:
+            if not Wallet.verify_transaction(tx):
+                return False, "Mining failed!, Transactions are manipulated"
+
         copied_transaction.append(reward_transaction)
 
         block = Block(
@@ -177,9 +180,7 @@ class Blockchain:
             proof,
         )
 
-        for tx in block.transactions:
-            if not Wallet.verify_transaction(tx):
-                return False, "Mining failed!, Transactions are manipulated"
+
 
         self.__chain.append(block)
         self.__open_transactions = []
