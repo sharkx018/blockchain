@@ -1,8 +1,8 @@
 import json
-from hash_util import hash_block
-from oop.block import Block
-from oop.transactions import Transactions
-from oop.verfication import Verification
+from utility.hash_util import hash_block
+from block import Block
+from transactions import Transactions
+from utility.verfication import Verification
 
 # Mining Config
 MINING_REWARD = 10
