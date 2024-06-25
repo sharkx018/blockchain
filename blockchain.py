@@ -3,10 +3,12 @@ from utility.hash_util import hash_block
 from block import Block
 from transactions import Transactions
 from utility.verfication import Verification
+from wallet import Wallet
 
 # Mining Config
 MINING_REWARD = 10
 MINING = 'MINING'
+
 
 class Blockchain:
     def __init__(self, hosting_node_id):
@@ -16,8 +18,11 @@ class Blockchain:
         self.__chain = [genesis_block]
         # Unhandled Transactions
         self.__open_transactions = []
+
+        # Load the blockchain from local storage
         self.load_data()
         self.hosting_node_id = hosting_node_id
+
 
     def get_chain(self):
         return self.__chain[:]
@@ -35,6 +40,7 @@ class Blockchain:
                     converted_tx = [
                         Transactions(tx['sender'],
                                      tx['recipient'],
+                                     tx['signature'],
                                      tx['amount'])
                         for tx in block['transactions']
                     ]
@@ -55,6 +61,7 @@ class Blockchain:
                     updated_open_tx = Transactions(
                         open_tx['sender'],
                         open_tx['recipient'],
+                        open_tx['signature'],
                         open_tx['amount']
                     )
                     updated_open_transactions.append(updated_open_tx)
@@ -116,12 +123,20 @@ class Blockchain:
             return None
         return self.__chain[-1]
 
-    def add_transaction(self, recipient, sender, amount=1.0):
+    def add_transaction(self, recipient, sender, signature, amount=1.0):
+
+        if self.hosting_node_id is None:
+            return False
+
         transaction = Transactions(
             sender,
             recipient,
+            signature,
             amount
         )
+
+        if not Wallet.verify_transaction(transaction):
+            return False
 
         if Verification.verify_transaction(transaction, self.get_balance):
             self.__open_transactions.append(transaction)
@@ -131,10 +146,14 @@ class Blockchain:
         return False
 
     def mine_block(self):
+
+        if self.hosting_node_id is None:
+            return False, "Mining Failed!, Got no wallet?"
+
         last_block = self.__chain[-1]
 
         hashed_block = hash_block(last_block)
-        print("====>>>>>Hashed Block:", hashed_block)
+        # print("====>>>>>Hashed Block:", hashed_block)
 
         proof = self.proof_of_work()
 
@@ -143,6 +162,7 @@ class Blockchain:
         reward_transaction = Transactions(
             MINING,
             self.hosting_node_id,
+            '',
             MINING_REWARD
         )
 
@@ -157,7 +177,11 @@ class Blockchain:
             proof,
         )
 
+        for tx in block.transactions:
+            if not Wallet.verify_transaction(tx):
+                return False, "Mining failed!, Transactions are manipulated"
+
         self.__chain.append(block)
         self.__open_transactions = []
         self.save_data()
-        return True
+        return True, ""
