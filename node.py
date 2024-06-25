@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from wallet import Wallet
 from blockchain import Blockchain
@@ -9,12 +9,30 @@ blockchain = Blockchain(wallet.public_key)
 
 CORS(app)
 
+
+@app.route('/', methods=['GET'])
+def get_ui():
+    return send_from_directory('ui', 'node.html')
+
+
 @app.route('/wallet', methods=['POST'])
 def create_keys():
     wallet.create_keys()
-    if wallet.save_keys():
 
-        global blockchain
+    global blockchain
+    is_save = False
+
+    if not is_save:
+
+        blockchain = Blockchain(wallet.public_key)
+        response = {
+            'public_key': wallet.public_key,
+            'private_key': wallet.private_key,
+            'funds': blockchain.get_balance()
+        }
+        return jsonify(response), 201
+
+    if is_save and wallet.save_keys():
         blockchain = Blockchain(wallet.public_key)
         response = {
             'public_key': wallet.public_key,
@@ -67,14 +85,8 @@ def get_balance():
         return jsonify(response), 500
 
 
-@app.route('/', methods=['GET'])
-def get_ui():
-    return 'This works!'
-
-
 @app.route('/transaction', methods=['POST'])
 def add_transaction():
-
     if wallet.public_key is None:
         response = {
             'message': 'No wallet set up'
@@ -118,9 +130,9 @@ def add_transaction():
         }
         return jsonify(response), 500
 
+
 @app.route('/mine', methods=['POST'])
 def mine():
-
     block, msg = blockchain.mine_block()
     if block is not None:
         hashed_block = block.__dict__.copy()
@@ -154,13 +166,11 @@ def get_chain():
 def get_open_transactions():
     transactions = blockchain.get_open_transactions()
     dict_transactions = [tx.__dict__ for tx in transactions]
-    response = {
-        'message': 'Transactions fetched successfully!',
-        'transactions': dict_transactions
-    }
-    return jsonify(response), 200
-
-
+    # response = {
+    #     'message': 'Transactions fetched successfully!',
+    #     'transactions': dict_transactions
+    # }
+    return jsonify(dict_transactions), 200
 
 
 if __name__ == '__main__':
