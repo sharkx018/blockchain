@@ -1,24 +1,19 @@
 import json
-from hash_util import hash_string, hash_block
+from hash_util import hash_block
 from oop.block import Block
 from oop.transactions import Transactions
+from oop.verfication import Verification
 
 # Init the blockchain list
+blockchain = []
+owner = 'Mukul'
+participants = {'Mukul'}
 
-
+# Mining Config
 MINING_REWARD = 10
-
 MINING = 'MINING'
 
-# sender = 'sender'
-# recipient = 'recipient'
-# amount = 'amount'
-
-blockchain = []
 open_transactions = []
-owner = 'Mukul'
-
-participants = {'Mukul'}
 
 
 def load_data():
@@ -90,24 +85,12 @@ def save_data():
         print('Error: File not saved!')
 
 
-def valid_proof(transactions, last_hash, proof):
-    # guess = (str(tx.to_ordered_dict() for tx in transactions) + str(last_hash) + str(proof))
-
-    tx_str = ''
-    for tx in transactions:
-        tx_str += str(tx.__dict__)
-    guess = str(tx_str) + str(last_hash) + str(proof)
-
-
-    guess_hash = hash_string(guess)
-    return guess_hash[0:2] == '00'
-
-
 def proof_of_work():
     last_block = blockchain[-1]
     lash_block_hash = hash_block(last_block)
     proof = 0
-    while not valid_proof(open_transactions, lash_block_hash, proof):
+    verifier = Verification()
+    while not verifier.valid_proof(open_transactions, lash_block_hash, proof):
         proof += 1
 
     return proof
@@ -141,20 +124,16 @@ def get_last_blockchain_value():
     return blockchain[-1]
 
 
-def verify_transaction(transaction):
-    sender_amount = get_balance(transaction.sender)
-    return sender_amount >= transaction.amount
-
-
 def add_transaction(recipient, sender=owner, amount=1.0):
-
     transaction = Transactions(
         sender,
         recipient,
         amount
     )
 
-    if verify_transaction(transaction):
+    verifier = Verification()
+
+    if verifier.verify_transaction(transaction, get_balance):
         open_transactions.append(transaction)
         save_data()
         return True
@@ -213,26 +192,6 @@ def print_blockchain_elements():
         print('-' * 20)
 
 
-def verify_chain():
-    for (index, block) in enumerate(blockchain):
-        if index == 0:
-            continue
-        if block.previous_hash != hash_block(blockchain[index - 1]):
-            print('Blockchain is invalid!')
-            print('previous_hash of block is invalid')
-            return False
-        if not valid_proof(block.transactions[:-1], block.previous_hash, block.proof):
-            print('Blockchain is invalid!')
-            print('Proof of work is invalid', "info: ", block.transactions[:-1], block.previous_hash, block.proof)
-            return False
-
-    return True
-
-
-def verify_transactions():
-    return all(verify_transaction(tx) for tx in open_transactions)
-
-
 waiting_for_input = True
 
 while waiting_for_input:
@@ -247,6 +206,8 @@ while waiting_for_input:
     user_choice = get_user_choice()
 
     print('-' * 10, 'Choice Registered', '-' * 10)
+
+    verifier = Verification()
 
     if user_choice == '1':
         tx_data = get_transaction_value()
@@ -263,7 +224,8 @@ while waiting_for_input:
     elif user_choice == '3':
         print_blockchain_elements()
     elif user_choice == '5':
-        if verify_transactions():
+
+        if verifier.verify_transactions(open_transactions, get_balance):
             print('All transactions are valid.')
         else:
             print('There are invalid transactions')
@@ -272,7 +234,7 @@ while waiting_for_input:
     else:
         print('Input was invalid, please check the value from the list!')
 
-    if not verify_chain():
+    if not verifier.verify_chain(blockchain):
         print_blockchain_elements()
         break
     print('Balance of {}: {:6.2f}'.format(owner, get_balance(owner)))
