@@ -23,6 +23,7 @@ class Blockchain:
         self.public_key = public_key
         self.node_id = node_id
         self.__peer_nodes = set()
+        self.resolve_conflicts = False
 
         # Load the blockchain from local storage
         self.load_data()
@@ -190,6 +191,17 @@ class Blockchain:
         converted_block = Block(block['index'], block['previous_hash'], transactions, block['proof'],
                                 block['timestamp'])
         self.__chain.append(converted_block)
+
+        # remove the local-open transaction if there are in incoming block['transaction']
+        stored_open_transactions = self.__open_transactions.copy()
+        for open_tx in stored_open_transactions:
+            for incoming_tx in block['transactions']:
+                if open_tx.sender == incoming_tx['sender'] and open_tx.recipient == incoming_tx['recipient'] and open_tx.signature == incoming_tx['signature']:
+                    try:
+                        self.__open_transactions.remove(open_tx)
+                    except:
+                        print('Item was already removed')
+
         self.save_data()
         return True
 
@@ -240,11 +252,11 @@ class Blockchain:
             converted_block = block.__dict__.copy()
             converted_block['transactions'] = [tx.__dict__ for tx in converted_block['transactions']]
             try:
-                response = requests.post(url, json={
-                    'block': converted_block
-                })
+                response = requests.post(url, json={'block': converted_block})
                 if response.status_code == 400 or response.status_code == 500:
                     print('Block declined!, needs resolving')
+                if response.status_code == 409:
+                    self.resolve_conflicts = True
             except requests.exceptions.ConnectionError:
                 continue
         return block, "Mining successful!"

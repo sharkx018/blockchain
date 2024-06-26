@@ -137,20 +137,18 @@ def broadcast_block():
 
     if block['index'] == blockchain.get_chain()[-1].index + 1:
         if blockchain.add_block(block):
-            response = {
-                'message': 'Block added'
-            }
+            response = {'message': 'Block added'}
             return jsonify(response), 201
         else:
-            response = {
-                'message': 'Block seems invalid.'
-            }
-            return jsonify(response), 500
+            response = {'message': 'Block seems invalid.'}
+            return jsonify(response), 409
     elif block['index'] > blockchain.get_chain()[-1].index:
-        pass
+        response = {'message': 'Block seems to be differ from the local blockchain.'}
+        blockchain.resolve_conflicts = True
+        return jsonify(response), 200
     else:
         response = {'message': 'Blockchain seems to be shorter, block not added'}
-        jsonify(response), 409
+        return jsonify(response), 409
 
 
 
@@ -207,6 +205,12 @@ def add_transaction():
 
 @app.route('/mine', methods=['POST'])
 def mine():
+
+    print("blockchain.resolve_conflicts===", blockchain.resolve_conflicts)
+    if blockchain.resolve_conflicts:
+        response = {'message': 'Resolve conflicts first, block not added!'}
+        return jsonify(response), 409
+
     block, msg = blockchain.mine_block()
     if block is not None:
         hashed_block = block.__dict__.copy()
