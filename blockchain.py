@@ -11,7 +11,7 @@ MINING = 'MINING'
 
 
 class Blockchain:
-    def __init__(self, hosting_node_id):
+    def __init__(self, public_key, node_id):
         # Starting block of the blockchain
         genesis_block = Block(0, '', [], 100, 0)
         # Init the blockchain list
@@ -19,9 +19,12 @@ class Blockchain:
         # Unhandled Transactions
         self.__open_transactions = []
 
+        self.public_key = public_key
+        self.node_id = node_id
+        self.__peer_nodes = set()
+
         # Load the blockchain from local storage
         self.load_data()
-        self.hosting_node_id = hosting_node_id
 
 
     def get_chain(self):
@@ -32,7 +35,7 @@ class Blockchain:
 
     def load_data(self):
         try:
-            with open('blockchain.txt', mode='r') as f:
+            with (open('blockchain-{}.txt'.format(self.node_id), mode='r') as f):
                 file_content = f.readlines()
                 blockchain = json.loads(file_content[0][:-1])
                 updated_blockchain = []
@@ -66,6 +69,8 @@ class Blockchain:
                     )
                     updated_open_transactions.append(updated_open_tx)
                 self.__open_transactions = updated_open_transactions
+                peer_nodes = json.loads(file_content[2])
+                self.__peer_nodes = set(peer_nodes)
         except:
             print('Handled Exception...')
         finally:
@@ -73,7 +78,7 @@ class Blockchain:
 
     def save_data(self):
         try:
-            with open('blockchain.txt', mode='w') as f:
+            with open('blockchain-{}.txt'.format(self.node_id), mode='w') as f:
 
                 savable_chain = [block.__dict__.copy() for block in [
                     Block(block_el.index, block_el.previous_hash, [tx.__dict__ for tx in block_el.transactions],
@@ -83,6 +88,8 @@ class Blockchain:
                 f.write('\n')
                 savable_transactions = [open_tx.__dict__.copy() for open_tx in self.__open_transactions]
                 f.write(json.dumps(savable_transactions))
+                f.write('\n')
+                f.write(json.dumps(list(self.__peer_nodes)))
         except IOError:
             print('Error: File not saved!')
 
@@ -97,10 +104,10 @@ class Blockchain:
 
     def get_balance(self):
 
-        if self.hosting_node_id is None:
+        if self.public_key is None:
             return None
 
-        participant = self.hosting_node_id
+        participant = self.public_key
 
         tx_sender = [[tx.amount for tx in block.transactions if tx.sender == participant] for block in self.__chain]
         open_transaction_sender_amount = [open_tx.amount for open_tx in self.__open_transactions if
@@ -129,7 +136,7 @@ class Blockchain:
 
     def add_transaction(self, recipient, sender, signature, amount=1.0):
 
-        if self.hosting_node_id is None:
+        if self.public_key is None:
             return False
 
         transaction = Transactions(
@@ -148,7 +155,7 @@ class Blockchain:
 
     def mine_block(self):
 
-        if self.hosting_node_id is None:
+        if self.public_key is None:
             return None, "Mining Failed!, Got no wallet?"
 
         last_block = self.__chain[-1]
@@ -162,7 +169,7 @@ class Blockchain:
 
         reward_transaction = Transactions(
             MINING,
-            self.hosting_node_id,
+            self.public_key,
             '',
             MINING_REWARD
         )
@@ -190,3 +197,15 @@ class Blockchain:
         self.__open_transactions = []
         self.save_data()
         return block, "Mining successful!"
+
+    def add_peer_node(self, node):
+        self.__peer_nodes.add(node)
+        self.save_data()
+
+    def remove_peer_node(self, node):
+        self.__peer_nodes.discard(node)
+        self.save_data()
+
+    def get_peer_nodes(self):
+        return list(self.__peer_nodes)[:]
+

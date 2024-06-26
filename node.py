@@ -4,9 +4,6 @@ from wallet import Wallet
 from blockchain import Blockchain
 
 app = Flask(__name__)
-wallet = Wallet()
-blockchain = Blockchain(wallet.public_key)
-
 CORS(app)
 
 
@@ -15,16 +12,20 @@ def get_ui():
     return send_from_directory('ui', 'node.html')
 
 
+@app.route('/network', methods=['GET'])
+def get_network_ui():
+    return send_from_directory('ui', 'network.html')
+
+
 @app.route('/wallet', methods=['POST'])
 def create_keys():
     wallet.create_keys()
 
     global blockchain
-    is_save = False
+    is_save = True
 
     if not is_save:
-
-        blockchain = Blockchain(wallet.public_key)
+        blockchain = Blockchain(wallet.public_key, port)
         response = {
             'public_key': wallet.public_key,
             'private_key': wallet.private_key,
@@ -33,7 +34,7 @@ def create_keys():
         return jsonify(response), 201
 
     if is_save and wallet.save_keys():
-        blockchain = Blockchain(wallet.public_key)
+        blockchain = Blockchain(wallet.public_key, port)
         response = {
             'public_key': wallet.public_key,
             'private_key': wallet.private_key,
@@ -52,7 +53,7 @@ def load_keys():
     if wallet.load_keys():
 
         global blockchain
-        blockchain = Blockchain(wallet.public_key)
+        blockchain = Blockchain(wallet.public_key, port)
         response = {
             'public_key': wallet.public_key,
             'private_key': wallet.private_key,
@@ -173,5 +174,62 @@ def get_open_transactions():
     return jsonify(dict_transactions), 200
 
 
+@app.route('/node', methods=['POST'])
+def add_route():
+    values = request.get_json()
+    if not values:
+        response = {
+            'message': 'No data attached'
+        }
+        return jsonify(response), 400
+
+    if 'node' not in values:
+        response = {
+            'message': 'No Node data found'
+        }
+        return jsonify(response), 400
+
+    node = values['node']
+    blockchain.add_peer_node(node)
+    response = {
+        'message': 'Node added successfully',
+        'all_nodes': blockchain.get_peer_nodes()
+    }
+    return jsonify(response), 201
+
+
+@app.route('/node/<node_url>', methods=['DELETE'])
+def remove_node(node_url):
+    if node_url is None or node_url is '':
+        response = {
+            'message': 'No node found'
+        }
+        return jsonify(response), 400
+    blockchain.remove_peer_node(node_url)
+    response = {
+        'message': 'Node removed!',
+        'all_nodes': blockchain.get_peer_nodes()
+    }
+    return jsonify(response), 200
+
+
+@app.route('/nodes', methods=['GET'])
+def get_nodes():
+    response = {
+        'message': 'All nodes fetched successfully',
+        'all_nodes': blockchain.get_peer_nodes()
+    }
+    return jsonify(response), 200
+
+
 if __name__ == '__main__':
-    app.run('0.0.0.0', port=3000)
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('-p', '--port', type=int,  default=3000)
+    args = parser.parse_args()
+    print(args)
+    port = args.port
+    wallet = Wallet(port)
+    blockchain = Blockchain(wallet.public_key, port)
+    app.run('0.0.0.0', port=port)
