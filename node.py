@@ -86,6 +86,41 @@ def get_balance():
         return jsonify(response), 500
 
 
+@app.route('/broadcast-transaction', methods=['POST'])
+def broadcast_transaction():
+    values = request.get_json()
+    if not values:
+        response = {
+            'message': "No Data found",
+        }
+        return jsonify(response), 400
+
+    required_fields = ['sender', 'recipient', 'amount', 'signature']
+    if not all(req_field in values for req_field in required_fields):
+        response = {
+            'message': 'Required Data is missing'
+        }
+        return jsonify(response), 400
+    is_success = blockchain.add_transaction(values['recipient'], values['sender'], values['signature'], values['amount'], False)
+    if is_success:
+        response = {
+            'message': 'Transaction created successfully!',
+            'transaction': {
+                'sender': values['sender'],
+                'recipient': values['recipient'],
+                'amount': values['amount'],
+                'signature': values['signature']
+            }
+        }
+
+        return jsonify(response), 201
+    else:
+        response = {
+            'message': 'Creating the transaction failed!'
+        }
+        return jsonify(response), 500
+
+
 @app.route('/transaction', methods=['POST'])
 def add_transaction():
     if wallet.public_key is None:
@@ -226,7 +261,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('-p', '--port', type=int,  default=3000)
+    parser.add_argument('-p', '--port', type=int, default=3000)
     args = parser.parse_args()
     print(args)
     port = args.port
