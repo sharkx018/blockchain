@@ -205,6 +205,50 @@ class Blockchain:
         self.save_data()
         return True
 
+    def resolve(self):
+        winner_chain = self.__chain
+        replace = False
+        for node in self.__peer_nodes:
+            try:
+                url = "http://{}/chain".format(node)
+                response = requests.get(url)
+                peer_node_chain_raw = response.json()
+                peer_node_chain = [
+                    Block(block['index'],
+                          block['previous_hash'],
+                          [
+                              Transactions(tx['sender'],
+                                           tx['recipient'],
+                                           tx['signature'],
+                                           tx['amount']
+                                           ) for tx in block['transactions']],
+                          block['proof'],
+                          block['timestamp']
+                          ) for block in peer_node_chain_raw]
+
+                peer_node_chain_len = len(peer_node_chain)
+                local_node_chain_len = len(winner_chain)
+
+                print('peer_node_chain_len:', peer_node_chain_len)
+                print('local_node_chain_len:', local_node_chain_len)
+
+                if peer_node_chain_len > local_node_chain_len and Verification.verify_chain(peer_node_chain):
+                    winner_chain = peer_node_chain
+                    replace = True
+            except requests.exceptions.ConnectionError:
+                continue
+        self.__chain = winner_chain
+        self.resolve_conflicts = False
+        if replace:
+            self.__open_transactions = []
+        self.save_data()
+        return replace
+
+
+
+
+
+
     def mine_block(self):
 
         if self.public_key is None:

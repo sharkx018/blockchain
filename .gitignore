@@ -1,3 +1,5 @@
 .idea/
 blockchain.txt
 wallet.txt
+blockchain-*.txt
+wallet-*.txt
